@@ -1,2 +1,10 @@
 build/
 out/
+
+# metals
+.bloops/
+.metals/
+
+# misc
+.nvim/
+patch/

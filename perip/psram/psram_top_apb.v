@@ -19,7 +19,25 @@ module psram_top_apb (
 
   wire [3:0] din, dout, douten;
   wire ack;
-  EF_PSRAM_CTRL_wb u0 (
+  // EF_PSRAM_CTRL_wb u0 (
+  //   .clk_i(clock),
+  //   .rst_i(reset),
+  //   .adr_i(in_paddr),
+  //   .dat_i(in_pwdata),
+  //   .dat_o(in_prdata),
+  //   .sel_i(in_pstrb),
+  //   .cyc_i(in_psel),
+  //   .stb_i(in_psel),
+  //   .ack_o(ack),
+  //   .we_i(in_pwrite),
+  // 
+  //   .sck(qspi_sck),
+  //   .ce_n(qspi_ce_n),
+  //   .din(din),
+  //   .dout(dout),
+  //   .douten(douten)
+  // );
+  my_PSRAM_CTRL_wb u0 (
     .clk_i(clock),
     .rst_i(reset),
     .adr_i(in_paddr),
