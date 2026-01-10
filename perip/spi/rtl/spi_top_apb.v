@@ -75,7 +75,7 @@ assign in_prdata  = data[31:0];
     .xip_pstrb(xip_pstrb),
     .xip_pwrite(xip_pwrite),
     .xip_penable(xip_penable),
-    .xip_bsy(wb_dat_o[8]),
+    .xip_bsy(wb_dat_o[8]),  // bit-GO_BSY[8] of SPI Master
     .wb_ack_o(wb_ack_o),
     .xip_ack_o(xip_ack_o)
   );

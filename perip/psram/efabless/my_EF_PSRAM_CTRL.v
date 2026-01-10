@@ -205,7 +205,7 @@ endmodule
 module my_PSRAM_QPI_EN (
     input   wire            clk,
     input   wire            rst_n,
-    input   wire            er,
+    input   wire            qe,
     output  reg             done,
 
     output  reg             sck,
@@ -222,21 +222,19 @@ module my_PSRAM_QPI_EN (
     always @ (posedge clk or negedge rst_n)
         if(!rst_n)
             sck <= 1'b0;
-        else if(~ce_n)
+        else if(qe)
             sck <= ~ sck;
         else
             sck <= 1'b0;
 
     // ce_n logic
-    assign ce_n = ~er;
+    assign ce_n = ~qe;
 
     always @ (posedge clk or negedge rst_n)
         if(!rst_n)
             counter <= 3'd7;
-        else if(sck & ~done)
+        else if(qe & sck & ~done)
             counter <= counter - 1'b1;
-        else if(~er)
-            counter <= 3'd7;
 
     // done logic
     always @ (posedge clk or negedge rst_n)
@@ -245,9 +243,10 @@ module my_PSRAM_QPI_EN (
         else
             done <= (counter == 3'd0);
 
+    // MSB first
     assign dout     =   {3'd0, CMD_35H[counter]};
 
-    assign douten   = (~ce_n);
+    assign douten   = qe;
 
 
 endmodule

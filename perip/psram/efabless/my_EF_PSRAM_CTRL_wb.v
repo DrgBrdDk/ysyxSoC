@@ -166,7 +166,7 @@ module my_PSRAM_CTRL_wb (
     my_PSRAM_QPI_EN ME (
         .clk(clk_i),
         .rst_n(~rst_i),
-        .er(~rst_i & ~me_init),
+        .qe(~rst_i & ~me_init),
         .done(me_done),
         .sck(me_sck),
         .ce_n(me_ce_n),

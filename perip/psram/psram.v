@@ -28,7 +28,7 @@ module psram(
   reg qpi_mode;
   reg state_switch;
 
-  wire ren = (state == S2_WAIT) && (counter == 8'd0);
+  wire ren = (state == S2_WAIT) && (counter == 8'd5);
   wire wen = (state == S3_DATA) && counter[0];
   wire valid = ((cmd == CMD_QSPI_READ) & ren) | ((cmd == CMD_QSPI_WRITE) & wen);
   wire [31:0] rdata, wdata;
@@ -44,6 +44,8 @@ module psram(
     .addr({8'd0, addr[23:2], 2'd0}),
     // Write 1 byte each time
     // Use counter[2:1] for increment
+    // each byte transfer 2 cycles
+    // so we use counter[2:1] for each byte
     .wmask(4'b1 << w_offset),
     .wdata(wdata),
     .rdata(rdata)
