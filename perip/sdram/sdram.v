@@ -14,6 +14,7 @@ module sdram(
 );
 
   // TODO: 先实现 LOAD MODE, ACTIVATE, READ 命令, 再实现 WRITE 命令
+  // TODO: 为简化实现, 仅支持 CAS Latency = 2
 
 localparam SDRAM_BANK_W = 2;
 localparam SDRAM_ROW_W  = 13;
@@ -48,7 +49,7 @@ localparam STATE_WRITE       = 3'd4;
   /* Mode Register */
   reg [12:0] Mode;
   wire [2:0] cas_w = Mode[6:4];
-  wire [2:0] bl_w  = 3'd2 ** Mode[2:0];
+  wire [2:0] bl_w  = {4'd2 ** Mode[2:0] - 1}[2:0];
 
   /* Command */
   wire [CMD_W-1:0] cmd;
@@ -67,10 +68,13 @@ localparam STATE_WRITE       = 3'd4;
 
   /* Counters */
   reg [2:0] burst_cnt;
+  wire no_burst_w = bl_w == 0;
+  wire burst_toend_w = burst_cnt == (bl_w - 1);
+  wire burst_end_w = burst_cnt == bl_w;
 
   /* State Machine */
   reg [STATE_W-1:0] state_r;
-  reg [STATE_W-1:0]state_next_w;
+  reg [STATE_W-1:0] state_next_w;
 
   // CS# indicates a valid command is asserted
   assign cmd = {cs, ras, cas, we};
@@ -81,7 +85,8 @@ localparam STATE_WRITE       = 3'd4;
     else state_r <= state_next_w;
 
     if (reset) rd_pend_q <= 0;
-    else rd_pend_q <= cmd == CMD_READ && state_r == STATE_READ0;
+    else rd_pend_q <= state_r == STATE_READ1 ? (rd_pend_q && cmd == CMD_READ) :
+                      state_r != STATE_IDLE ? cmd == CMD_READ : 0;
   end
 
   always @(*) begin
@@ -89,19 +94,19 @@ localparam STATE_WRITE       = 3'd4;
 
     case (state_r)
       STATE_IDLE: begin
-        if (cmd == CMD_WRITE) state_next_w = STATE_WRITE;
+        if (cmd == CMD_WRITE) state_next_w = no_burst_w ? STATE_IDLE : STATE_WRITE;
         else if (cmd == CMD_READ) state_next_w = STATE_CAS;
       end
 
-      STATE_CAS: state_next_w = STATE_READ0;
-      STATE_READ0: state_next_w = STATE_READ1;
+      STATE_CAS: state_next_w = no_burst_w ? STATE_READ1 : STATE_READ0;
+      STATE_READ0: state_next_w = burst_toend_w ? STATE_READ1 : STATE_READ0;
       STATE_READ1: begin
-        if (rd_pend_q) state_next_w = STATE_READ0;
-        else if (cmd == CMD_READ) state_next_w = STATE_CAS;
+        if (rd_pend_q) state_next_w = no_burst_w ? STATE_READ1 : STATE_READ0;
+        else if (cmd == CMD_READ) state_next_w = STATE_CAS;  // no rd_pend
         else state_next_w = STATE_IDLE;
       end
 
-      STATE_WRITE: state_next_w = STATE_IDLE;
+      STATE_WRITE: state_next_w = burst_end_w ? STATE_IDLE : STATE_WRITE;
 
       default: ;
     endcase
@@ -146,11 +151,12 @@ localparam STATE_WRITE       = 3'd4;
       col_pend_q <= 0;
     end
     else if (cmd == CMD_READ) begin
-      if (state_r == STATE_READ0) begin
+      if (state_r != STATE_IDLE) begin
         bank_pend_q <= ba;
         col_pend_q  <= a[8:0];
       end
-      else if (rd_pend_q) begin
+
+      if (rd_pend_q) begin
         bank_q <= bank_pend_q;
         col_q <= col_pend_q;
       end
@@ -176,9 +182,9 @@ localparam STATE_WRITE       = 3'd4;
   // Burst count
   always @(posedge clk) begin
     if (reset) burst_cnt <= 0;
+    else if (burst_end_w) burst_cnt <= 0;
     else if (cmd == CMD_WRITE && state_r == STATE_IDLE) burst_cnt <= 1;
-    else if (rd_pend_q || state_r == STATE_READ0) burst_cnt <= 1;
-    else burst_cnt <= 0;
+    else if (state_r == STATE_READ0 || state_r == STATE_READ1) burst_cnt <= burst_cnt + 1;
   end
 
   // assume every row are active
