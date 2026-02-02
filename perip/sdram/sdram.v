@@ -3,6 +3,53 @@
 module sdram(
   input        clk,
   input        cke,
+  input [ 1:0] cs,
+  input        ras,
+  input        cas,
+  input        we,
+  input [12:0] a,
+  input [ 1:0] ba,
+  input [ 3:0] dqm,
+  inout [31:0] dq
+);
+
+  sdram_particle #(
+    .PARTICLE_WORD_IDX(0),
+    .PARTICLE_IS_HIGH(0)
+  ) sdram0_l(
+    .clk(clk),
+    .cke(cke),
+    .cs(cs[0]),
+    .ras(ras),
+    .cas(cas),
+    .we(we),
+    .a(a),
+    .ba(ba),
+    .dqm(dqm[1:0]),
+    .dq(dq[15:0])
+  );
+
+  sdram_particle #(
+    .PARTICLE_WORD_IDX(0),
+    .PARTICLE_IS_HIGH(1)
+  ) sdram0_h(
+    .clk(clk),
+    .cke(cke),
+    .cs(cs[0]),
+    .ras(ras),
+    .cas(cas),
+    .we(we),
+    .a(a),
+    .ba(ba),
+    .dqm(dqm[3:2]),
+    .dq(dq[31:16])
+  );
+
+endmodule
+
+module sdram_particle(
+  input        clk,
+  input        cke,
   input        cs,
   input        ras,
   input        cas,
@@ -15,6 +62,9 @@ module sdram(
 
   // TODO: 先实现 LOAD MODE, ACTIVATE, READ 命令, 再实现 WRITE 命令
   // TODO: 为简化实现, 仅支持 CAS Latency = 2
+
+parameter PARTICLE_IS_HIGH  = 0;
+parameter PARTICLE_WORD_IDX = 0;
 
 localparam SDRAM_BANK_W = 2;
 localparam SDRAM_ROW_W  = 13;
@@ -187,55 +237,54 @@ localparam STATE_WRITE       = 3'd4;
     else if (state_r == STATE_READ0 || state_r == STATE_READ1) burst_cnt <= burst_cnt + 1;
   end
 
-  // assume every row are active
-
-  // Data
-  wire s_isWr;
-  wire s_rd_valid_w, s_wr_valid_w;
-  wire s_valid_w;
-  wire [31:0] wdata_w, rdata_w;
+  wire s_valid, s_isWr;
+  wire [15:0] s_wdata;
+  wire [15:0] s_rdata;
 
   sdram_cmd sdram_cmd_i(
     .clock(clk),
-    .valid(s_valid_w),
+    .p_word(PARTICLE_WORD_IDX),
+    .p_bit(PARTICLE_IS_HIGH),
+    .valid(s_valid),
     .isWr(s_isWr),
-    .addr(32'ha000_0000 + {7'd0, bank_w, row_w, col_w, 1'b0}),
-    .wdata(wdata_w),
-    .wmask({2'd0, ~dqm}),
-    .rdata(rdata_w)
+    .addr16({bank_w, row_w, col_w}),
+    .wmask(~dqm),
+    .wdata(s_wdata),
+    .rdata(s_rdata)
   );
 
-  assign s_isWr = cmd == CMD_WRITE || state_r == STATE_WRITE;
-  assign s_wr_valid_w = cmd == CMD_WRITE || state_r == STATE_WRITE;
+  wire s_wr_valid_w = cmd == CMD_WRITE || state_r == STATE_WRITE;
   // driven READ at CAS end for random or consecutive burst
-  assign s_rd_valid_w = state_r == STATE_CAS || (state_r == STATE_READ1 && rd_pend_q);
-  assign s_valid_w = bank_open_q[bank_w] & (s_isWr ? s_wr_valid_w : s_rd_valid_w);
+  wire s_rd_valid_w = state_r == STATE_CAS || (state_r == STATE_READ1 && rd_pend_q);
+
+  assign s_valid = bank_open_q[bank_w] & (s_isWr ? s_wr_valid_w : s_rd_valid_w);
+  assign s_isWr = cmd == CMD_WRITE || state_r == STATE_WRITE;
 
   wire onRead = state_r == STATE_READ0 || state_r == STATE_READ1;
-  assign wdata_w = onRead ? 32'd0 : {16'd0, dq};
-  // sdram_cmd is 32-bit aligned
-  wire [15:0] rdq_align_w = col_w[0] ? rdata_w[31:16] : rdata_w[15:0];
-  assign dq = onRead ? rdq_align_w : 16'bz;
+  assign s_wdata = onRead ? 16'd0 : dq;
+  assign dq = onRead ? s_rdata : 16'bz;
 
 endmodule
 
-import "DPI-C" function void sdram_read(input int addr, output int data);
-import "DPI-C" function void sdram_write(input int addr, input int data, input int wmask);
+import "DPI-C" function void sdram_read(input bit p_word, input bit p_bit, input int addr16, output shortint data);
+import "DPI-C" function void sdram_write(input bit p_w_b, input bit p_bit, input int addr16, input shortint data, input int wmask);
 
 module sdram_cmd(
   input wire clock,
+  input wire p_word,
+  input wire p_bit,
   input wire valid,
   input wire isWr,
-  input wire [31:0] addr,
-  input wire [31:0] wdata,
-  input wire [3:0] wmask,
-  output reg [31:0] rdata
+  input wire [23:0] addr16,
+  input wire [1:0] wmask,
+  input wire [15:0] wdata,
+  output reg [15:0] rdata
 );
   always @(posedge clock) begin
     if (valid)
       if (isWr)
-        sdram_write(addr, wdata, {28'd0, wmask});
+        sdram_write(p_word, p_bit, {8'd0, addr16}, wdata, {30'd0, wmask});
       else
-        sdram_read(addr, rdata);
+        sdram_read(p_word, p_bit, {8'd0, addr16}, rdata);
   end
 endmodule

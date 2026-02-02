@@ -14,23 +14,26 @@ module sdram_top_apb (
 
   output        sdram_clk,
   output        sdram_cke,
-  output        sdram_cs,
+  output [ 1:0] sdram_cs,
   output        sdram_ras,
   output        sdram_cas,
   output        sdram_we,
   output [12:0] sdram_a,
   output [ 1:0] sdram_ba,
-  output [ 1:0] sdram_dqm,
-  inout  [15:0] sdram_dq
+  output [ 3:0] sdram_dqm,
+  inout  [31:0] sdram_dq
 );
 
   wire sdram_dout_en;
-  wire [15:0] sdram_dout;
-  assign sdram_dq = sdram_dout_en ? sdram_dout : 16'bz;
+  wire [31:0] sdram_dout;
+  assign sdram_dq = sdram_dout_en ? sdram_dout : 32'bz;
 
-  typedef enum [1:0] { ST_IDLE, ST_WAIT_ACCEPT, ST_WAIT_ACK } state_t;
+  typedef enum bit [1:0] { ST_IDLE, ST_WAIT_ACCEPT, ST_WAIT_ACK } state_t;
   reg [1:0] state;
   wire req_accept;
+
+  wire is_read  = ((in_psel && !in_penable) || (state == ST_WAIT_ACCEPT)) && !in_pwrite;
+  wire is_write = ((in_psel && !in_penable) || (state == ST_WAIT_ACCEPT)) &&  in_pwrite;
 
   always @(posedge clock) begin
     if (reset) state <= ST_IDLE;
@@ -43,13 +46,11 @@ module sdram_top_apb (
       endcase
   end
 
-  wire is_read  = ((in_psel && !in_penable) || (state == ST_WAIT_ACCEPT)) && !in_pwrite;
-  wire is_write = ((in_psel && !in_penable) || (state == ST_WAIT_ACCEPT)) &&  in_pwrite;
   sdram_axi_core #(
     .SDRAM_MHZ(100),
     .SDRAM_ADDR_W(24),
     .SDRAM_COL_W(9),
-    .SDRAM_READ_LATENCY(2)
+    .SDRAM_READ_LATENCY(0)  // NOTE: Remind this parameter is 0, 2, ...
   ) u_sdram_ctrl(
     .clk_i(clock),
     .rst_i(reset),
