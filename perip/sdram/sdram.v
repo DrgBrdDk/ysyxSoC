@@ -45,6 +45,38 @@ module sdram(
     .dq(dq[31:16])
   );
 
+  sdram_particle #(
+    .PARTICLE_WORD_IDX(1),
+    .PARTICLE_IS_HIGH(0)
+  ) sdram1_l(
+    .clk(clk),
+    .cke(cke),
+    .cs(cs[1]),
+    .ras(ras),
+    .cas(cas),
+    .we(we),
+    .a(a),
+    .ba(ba),
+    .dqm(dqm[1:0]),
+    .dq(dq[15:0])
+  );
+
+  sdram_particle #(
+    .PARTICLE_WORD_IDX(1),
+    .PARTICLE_IS_HIGH(1)
+  ) sdram1_h(
+    .clk(clk),
+    .cke(cke),
+    .cs(cs[1]),
+    .ras(ras),
+    .cas(cas),
+    .we(we),
+    .a(a),
+    .ba(ba),
+    .dqm(dqm[3:2]),
+    .dq(dq[31:16])
+  );
+
 endmodule
 
 module sdram_particle(

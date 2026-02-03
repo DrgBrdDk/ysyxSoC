@@ -680,8 +680,8 @@ assign sdram_data_out_en_o   = ~data_rd_en_q;
 assign sdram_data_output_o   = {data_h_q, data_l_q};
 
 assign sdram_cke_o  = cke_q;
-assign sdram_cs_o[0]= command_q[3] & ~ram_addr_w[SDRAM_ADDR_W+1];
-assign sdram_cs_o[1]= command_q[3] &  ram_addr_w[SDRAM_ADDR_W+1];
+assign sdram_cs_o[0]= command_q[3] |  ram_addr_w[SDRAM_ADDR_W+2];
+assign sdram_cs_o[1]= command_q[3] | ~ram_addr_w[SDRAM_ADDR_W+2];
 assign sdram_ras_o  = command_q[2];
 assign sdram_cas_o  = command_q[1];
 assign sdram_we_o   = command_q[0];
