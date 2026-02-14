@@ -92,7 +92,7 @@ module flash_cmd(
 );
   always@(posedge clock) begin
     if (valid)
-      if (cmd == 8'h03) flash_read(addr, data);
+      if (cmd == 8'h03) flash_read({8'h30, addr[23:0]}, data);
       else begin
         $fwrite(32'h80000002, "Assertion failed: Unsupport command `%xh`, only support `03h` read command\n", cmd);
         $fatal;

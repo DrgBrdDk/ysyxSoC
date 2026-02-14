@@ -143,11 +143,11 @@ module psram_cmd(
   input [31:0] wdata,
   output reg [31:0] rdata
 );
-
+  wire [31:0] taddr = {8'h80, addr[23:0]};
   always @(posedge clock) begin
     if (valid) begin
-      if (~wen && cmd == CMD_QSPI_READ) psram_read(addr, rdata);
-      else if (wen && cmd == CMD_QSPI_WRITE) psram_write(addr, wdata, {28'd0, wmask});
+      if (~wen && cmd == CMD_QSPI_READ) psram_read(taddr, rdata);
+      else if (wen && cmd == CMD_QSPI_WRITE) psram_write(taddr, wdata, {28'd0, wmask});
       else begin
         $warning("[psram] Assertion failed: Unsupport command %xh\n", cmd);
         $fatal;
